@@ -1,47 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { db, auth, googleProvider } from "./firebase";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
-import { collection, onSnapshot, query, orderBy, serverTimestamp, writeBatch, doc, where, getDocs, deleteDoc, addDoc, updateDoc, setDoc, getDoc } from "firebase/firestore";
+import { supabase } from "./supabaseClient"; // Pastikan file ini ada
 import GrafikPage from "./GrafikPage";
 
-// --- DATA MASTER BARU (FIXED) ---
-const MASTER_SANTRI_FIX = [
-  "Abidurrohman", "Achmad Romatullah Asy Syahir", "Afif Ali Mansyur", "Ahmad", "Ahmad Aniq Munir",
-  "Ahmad Faris A'lauddin", "Ahmad Firiham", "Ahmad Hanaan Badar", "Ahmad Ilham Rizki", "Ahmad Malik Ibrahim",
-  "Ahmad Muhammad Akaais T", "Ahmad Rifandi Julianto", "Ahmad Sheva Alfarisi", "Ahmad Syafiqul Anwar",
-  "Ahmad Syahrul Khamdi", "Alfan Ni'am", "Alfan Okta Prasetia", "Ali", "Andan Juandistira",
-  "Anugrah Nur Lillahi Akbar", "Arsyad (Dalwa)", "Asyraf Faeyza Alsyafaraz", "Aufal", "Azka Naja",
-  "Bagus Adi Prayoga", "Bilal Nazhifa Dzakiy", "Catur Seno Prayogo", "Danil", "Davin Defriza",
-  "Deni Oktafiano Putra", "Dian Ma'arif", "Dimas Aji", "Dimas Kurniawan", "Fadel Muhammad Ramadhan",
-  "Fadhil Qurunul Bahri", "Fadli (Dalwa)", "Fahmi Rojih", "Fahri Asmaul Jinan", "Fajar", "Falah",
-  "Fanni Muhammad Janki Dausat", "Farid Muwafiqul Falah", "Fathoni", "Faza Al Fairuz", "Feri",
-  "Haidar Al Ghozi", "Ilham Afied Prasetya", "Iqbal Doni Saputra", "Ismail Fajri Mahadri", "Izza",
-  "Izzudin Hikam Al Rodli", "Khafidz Alfarizi", "Kholili Abdul H", "Lukman Amir Dalilul Khairat",
-  "Maulana Risqi Manan", "Miftahul Huda Said", "Miftakhur Rizqi Aditya", "Mohammad Danil Murtadho",
-  "Muhamad Hildan Fadhil A.", "Muhammad Abid Ghufron", "Muhammad Adam Jauhari", "Muhammad Ahsan Nazil",
-  "Muhammad Alawy Maghfur", "Muhammad Amril Mufti", "Muhammad Arkan Althaf", "Muhammad Bahij Al Auzi Wahid",
-  "Muhammad Dani Farkhan", "Muhammad Dika Miftahul Khoir", "Muhammad Fadlu", "Muhammad Fajar Rizal F.",
-  "Muhammad Fikri Maulana", "Muhammad Fikri Nasrullah", "Muhammad Hilmi Muwaffaq", "Muhammad Ibrahim Al Kholili",
-  "Muhammad Ivraka Adiputra", "Muhammad Lubab Ahris Al Alawi", "Muhammad Miqdad Baihaqi", "Muhammad Mughna",
-  "Muhammad Najih Naufal", "Muhammad Rifki Nor Izdihar", "Muhammad Rizki Pratama", "Muhammad Rizqi Maulana",
-  "Muhammad Rizqi Raditya", "Muhammad Shihab M. Faris", "Muhammad Syaiful Islam Arramadhan",
-  "Muhammad Taufiqul Hadi", "Muhammad Wafi Syifa'ul F", "Muhammad Wi'am Firman Iltizam", "Muhammad Xafi Al Fattah",
-  "Muhammad Zaenal Arifin", "Muhammad Zainur Rohman", "Muhammat Misbahul Huda", "Mushoffa Arba Yamin",
-  "Muzakkyl Falah Mubarok", "Naufal Abdan Malik", "Nur Yanto", "Radit", "Rangga Hariyanto", "Rifal Aztsauri",
-  "Rizky Ahmad Azka", "Robet Kafi Wakafa", "Sholahuddin", "Shoni", "Soffan Syarofi", "Susilo",
-  "Susilo Budi Pranoto", "Syamsi Maulidi Aziz Abdillah", "Syarifuddin Sa'dulloh", "Syirwan Abdillah Akbar",
-  "Tegar Ibrahim", "Udin", "Umar Azzahidi", "Umarul Mukminin", "Utsman Karim Musthofa", "Valdis Rayhan Rifaldo",
-  "Vallent Firmansyah", "Wildan Ahmad Baihaqi", "Wiwik", "Yusuf Syaifuddin", "Zaini Fahrizal Amri", "Zainuri"
-];
+// --- DATA MASTER HARDCODED (Opsional, jika DB kosong) ---
+const MASTER_SANTRI_FIX = ["Abidurrohman", "Ahmad", "Danil", "Fajar", "Feri", "Shoni", "Udin", "Wiwik", "Zainuri", "Fathoni", "Falah", "Radit", "Dimas Aji", "Dimas Kurniawan", "Aufal"]; 
+const MASTER_JENIS_FIX = ["Jama'ah Subuh", "Jama'ah Maghrib", "Jama'ah Isya", "Ngaji Sore", "Ngaji Malam", "Kegiatan Malam", "Tandzif", "Imam/adzan Subuh", "Imam/adzan Maghrib", "Imam/adzan Isya"];
 
-const MASTER_JENIS_FIX = [
-  "Absen Malam (Menginap)", "Badriyyah (Jum’at)", "Imam/adzan Ashar", "Imam/adzan Dhuhur", "Imam/adzan Isya",
-  "Imam/adzan Maghrib", "Imam/adzan Subuh", "Jama'ah Ashar", "Jama'ah Isya", "Jama'ah Maghrib",
-  "Jama'ah Subuh", "Kegiatan Malam", "Khataman (Jum’at)", "Ngaji Malam", "Ngaji Sore", "Ngaji Subuh", "Tandzif"
-];
+// --- CONFIG ---
+// Masukkan email admin utama di sini
+const SUPER_ADMINS = ["daruttauhidpotroyudan@gmail.com", "ma2n13@gmail.com", "email.anda@gmail.com"]; 
 
-// --- HELPERS & CONFIG ---
-const SUPER_ADMINS = ["daruttauhidpotroyudan@gmail.com", "ma2n13@gmail.com"];
 const getDate = (d = new Date()) => new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
 const fmtDate = (d) => new Date(d).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "short", day: "numeric" });
 
@@ -61,8 +29,8 @@ const Icon = memo(({ name, className, ...props }) => {
   );
 });
 
-// --- SUB-COMPONENTS ---
-// 1. History Grid (Kalender Matriks)
+// --- SUB-COMPONENTS (Sama seperti sebelumnya, hanya disesuaikan sedikit) ---
+
 const HistoryGrid = memo(({ logs, types }) => {
   const [currDate, setCurrDate] = useState(new Date());
 
@@ -95,7 +63,6 @@ const HistoryGrid = memo(({ logs, types }) => {
         <span className="font-bold text-sm text-[var(--text-accent)] uppercase tracking-wide">{monthName}</span>
         <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition"><Icon name="Chevron" className="w-5 h-5 -rotate-90" /></button>
       </div>
-
       <div className="overflow-x-auto custom-scrollbar pb-2">
         <div className="inline-block min-w-full align-middle">
           <div className="flex border-b border-[var(--border)]">
@@ -106,7 +73,6 @@ const HistoryGrid = memo(({ logs, types }) => {
               <div key={d} className={`${cellBase} bg-[var(--bg-header)] text-[var(--text-muted)] w-9`}>{d}</div>
             ))}
           </div>
-
           {types.map((jenis, idx) => (
             <div key={jenis.id || idx} className="flex border-b border-[var(--border)] last:border-0 hover:bg-[var(--bg-hover)]">
               <div className="sticky left-0 z-10 w-44 min-w-[11rem] bg-[var(--bg-card)] border-r border-[var(--border)] shrink-0 px-3 py-1 text-[11px] font-medium leading-tight flex items-center text-[var(--text-main)] shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
@@ -115,23 +81,16 @@ const HistoryGrid = memo(({ logs, types }) => {
               {daysArray.map(day => {
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const violation = currentMonthLogs.find(l => l.jenis === jenis.nama && l.tglMelanggar === dateStr);
-                
                 let cellClass = "bg-emerald-600/20 dark:bg-emerald-900/20"; 
                 let content = "";
                 let title = "Aman";
-
                 if (violation) {
                    const isSudah = violation.statusTazir === "Sudah";
                    cellClass = isSudah ? "bg-amber-500 text-white" : "bg-red-600 text-white shadow-inner";
                    content = isSudah ? "S" : "B";
                    title = `${violation.keterangan || 'Melanggar'} (${violation.statusTazir})`;
                 }
-
-                return (
-                  <div key={day} className={`${cellBase} ${cellClass} w-9 cursor-help`} title={title}>
-                    {content}
-                  </div>
-                );
+                return <div key={day} className={`${cellBase} ${cellClass} w-9 cursor-help`} title={title}>{content}</div>;
               })}
             </div>
           ))}
@@ -141,7 +100,6 @@ const HistoryGrid = memo(({ logs, types }) => {
   );
 });
 
-// 2. SantriList Component
 const SantriList = memo(({ filterTazir, groupedLogs, groupedNotes, expanded, setExpanded, role, actions, noteForm, setNoteForm, types }) => {
   const canDelete = role === 'admin';
   const [selectedIds, setSelectedIds] = useState([]);
@@ -215,21 +173,14 @@ const SantriList = memo(({ filterTazir, groupedLogs, groupedNotes, expanded, set
   );
 });
 
-// 3. Batch/Admin Components (Updated for Approval & Assignment)
+// --- ADMIN COMPONENTS ---
 const BatchUsers = memo(({ users, pending, types, onDel, onApprove, onReject, onUpdateAssignment }) => {
-    const [editMode, setEditMode] = useState(null); // ID of user being edited
+    const [editMode, setEditMode] = useState(null);
     const [tempAssign, setTempAssign] = useState([]);
-    const [tab, setTab] = useState("active"); // active, pending
+    const [tab, setTab] = useState("active");
 
-    const handleEdit = (u) => {
-        setEditMode(u.id);
-        setTempAssign(u.assignedTypes || []);
-    };
-    
-    const saveEdit = () => {
-        onUpdateAssignment(editMode, tempAssign);
-        setEditMode(null);
-    }
+    const handleEdit = (u) => { setEditMode(u.id); setTempAssign(u.assignedTypes || []); };
+    const saveEdit = () => { onUpdateAssignment(editMode, tempAssign); setEditMode(null); }
 
     return (
         <div className="space-y-4 animate-fade-in">
@@ -237,7 +188,6 @@ const BatchUsers = memo(({ users, pending, types, onDel, onApprove, onReject, on
                 <button onClick={() => setTab("active")} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${tab === 'active' ? 'border-blue-600 text-blue-600' : 'border-transparent text-[var(--text-muted)]'}`}>Active ({users.length})</button>
                 <button onClick={() => setTab("pending")} className={`px-4 py-2 text-sm font-bold border-b-2 transition ${tab === 'pending' ? 'border-amber-600 text-amber-600' : 'border-transparent text-[var(--text-muted)]'}`}>Pending ({pending.length})</button>
             </div>
-
             {tab === "active" && (
                 <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg h-[60vh] overflow-y-auto custom-scrollbar divide-y divide-[var(--border)]">
                     {users.map(u => (
@@ -262,10 +212,8 @@ const BatchUsers = memo(({ users, pending, types, onDel, onApprove, onReject, on
                                     )}
                                 </div>
                             </div>
-                            
-                            {/* Assignment Section */}
                             {u.role !== 'admin' && (
-                                <div className="bg-[var(--bg-sub)] p-2 rounded border border-[var(--border)] text-xs">
+                                <div className={`p-2 rounded border border-[var(--border)] text-xs transition-colors ${editMode === u.id ? "bg-blue-50/50 border-blue-200" : "bg-[var(--bg-sub)]"}`}>
                                     <span className="font-bold block mb-1 text-[var(--text-muted)]">Tugas Input:</span>
                                     {editMode === u.id ? (
                                         <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto custom-scrollbar">
@@ -292,7 +240,6 @@ const BatchUsers = memo(({ users, pending, types, onDel, onApprove, onReject, on
                     ))}
                 </div>
             )}
-
             {tab === "pending" && (
                 <div className="space-y-3">
                     {pending.length === 0 && <div className="text-center text-[var(--text-muted)] py-4 text-sm">Tidak ada permintaan.</div>}
@@ -323,103 +270,6 @@ const BatchUsers = memo(({ users, pending, types, onDel, onApprove, onReject, on
         </div>
     );
 });
-
-const BatchDaily = memo(({ types, searchState, setSearch, onSearch, result, selected, setSelected, target, setTarget, onExec }) => (
-  <div className="space-y-4 animate-fade-in">
-    <div className="flex gap-2">
-      <input type="date" className="input-field py-2.5 flex-1 bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 text-sm" value={searchState.date} onChange={e => setSearch({...searchState, date: e.target.value})} />
-      <button onClick={onSearch} className="bg-blue-600 text-white rounded px-4 text-sm font-bold shadow-sm hover:bg-blue-700">🔍 Cari</button>
-    </div>
-    <select className="input-field py-2.5 w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 text-sm" value={searchState.jenis} onChange={e => setSearch({...searchState, jenis: e.target.value})}>
-      <option value="">-- Pilih Jenis Pelanggaran --</option>
-      {types.map(j => <option key={j.id} value={j.nama}>{j.nama}</option>)}
-    </select>
-    {result.length > 0 && (
-      <div className="bg-[var(--bg-card)] p-3 rounded border border-[var(--border)] mt-2 shadow-sm">
-        <div className="flex justify-between items-center mb-3 pb-2 border-b border-[var(--border)]">
-          <span className="text-sm font-bold">Ditemukan: {result.length}</span>
-          <button onClick={() => setSelected(selected.length === result.length ? [] : result.map(r => r.id))} className="text-xs text-blue-500 font-bold underline p-1">All / None</button>
-        </div>
-        <div className="max-h-40 overflow-y-auto space-y-1.5 mb-4 custom-scrollbar">
-          {result.map(r => (
-            <label key={r.id} className="flex gap-3 p-2 hover:bg-[var(--bg-hover)] rounded border border-[var(--border)] cursor-pointer items-center bg-[var(--bg-input)]">
-              <input type="checkbox" checked={selected.includes(r.id)} onChange={() => setSelected(p => p.includes(r.id) ? p.filter(x => x !== r.id) : [...p, r.id])} className="accent-blue-500 w-4 h-4" />
-              <span className="text-sm font-medium truncate">{r.nama}</span>
-            </label>
-          ))}
-        </div>
-        <div className="bg-[var(--bg-sub)] p-3 rounded border border-[var(--border)] space-y-3">
-          <p className="text-xs font-bold text-[var(--text-muted)] uppercase">Aksi Massal ({selected.length} Item)</p>
-          <div className="grid grid-cols-1 gap-2">
-            <select className="input-field w-full py-2.5 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded px-2" value={target.newJenis} onChange={e => setTarget({...target, newJenis: e.target.value})}>
-              <option value="">-- Ganti Jenis Baru --</option>
-              {types.map(j => <option key={j.id} value={j.nama}>{j.nama}</option>)}
-            </select>
-            <input type="date" className="input-field w-full py-2.5 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded px-2" value={target.newDate} onChange={e => setTarget({...target, newDate: e.target.value})} />
-          </div>
-          <div className="flex gap-2 pt-1">
-            <button onClick={() => onExec('update_all')} className="flex-[2] bg-green-700 hover:bg-green-800 text-white py-2.5 rounded text-sm font-bold shadow-sm">UPDATE DATA</button>
-            <button onClick={() => onExec('delete')} className="flex-1 bg-red-700 hover:bg-red-800 text-white py-2.5 rounded text-sm font-bold shadow-sm">HAPUS</button>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-));
-
-const BatchSantri = memo(({ santri, form, setForm, onAdd, onUpdate, onDel, edit, setEdit }) => (
-  <div className="space-y-4 animate-fade-in">
-    <div className="flex gap-2 items-center">
-      <input type="text" placeholder="Nama Santri Baru..." className="input-field flex-1 min-w-0 px-3 py-2.5 bg-[var(--bg-input)] border border-[var(--border)] rounded text-sm" value={form} onChange={e => setForm(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAdd()} />
-      <button onClick={onAdd} className="bg-green-700 hover:bg-green-800 text-white px-5 py-2.5 rounded font-bold text-lg shadow-sm shrink-0 flex items-center justify-center">+</button>
-    </div>
-    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg h-72 overflow-y-auto custom-scrollbar divide-y divide-[var(--border)]">
-      {santri.map(s => (
-        <div key={s.id} className="p-3 flex justify-between items-center hover:bg-[var(--bg-hover)]">
-          {edit?.id === s.id ? (
-            <div className="flex gap-2 w-full items-center">
-              <input type="text" className="flex-1 min-w-0 bg-[var(--bg-input)] border border-blue-500 rounded px-2 py-1.5 text-sm" value={edit.nama} onChange={e => setEdit({...edit, nama: e.target.value})} autoFocus />
-              <button onClick={onUpdate} className="text-green-600 p-1 font-bold text-lg">💾</button>
-              <button onClick={() => setEdit(null)} className="text-red-500 p-1 font-bold text-lg">✖</button>
-            </div>
-          ) : (
-            <>
-              <span className="text-sm font-medium text-[var(--text-main)] truncate">{s.nama}</span>
-              <div className="flex gap-3">
-                <button onClick={() => setEdit({id: s.id, nama: s.nama})} className="text-[var(--text-muted)] hover:text-blue-500 text-sm">✏️</button>
-                <button onClick={() => onDel(s.id)} className="text-[var(--text-muted)] hover:text-red-500 text-sm">🗑️</button>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  </div>
-));
-
-const BatchDanger = memo(({ form, setForm, onExec, loading, onResetMaster }) => (
-  <div className="space-y-6 mt-6">
-    <div className="bg-red-950/5 border border-red-200 p-4 rounded-lg space-y-3 shadow-sm">
-      <h2 className="text-sm font-bold text-red-700 flex items-center gap-2">⚠️ HAPUS MASSAL</h2>
-      <p className="text-xs text-red-600/80">Hapus permanen semua data pelanggaran dalam rentang tanggal.</p>
-      <div className="grid grid-cols-2 gap-3">
-        {['start', 'end'].map(k => <input key={k} type="date" className="input-field w-full py-2 bg-white border border-red-300 rounded text-sm focus:border-red-500 text-red-900" value={form[k]} onChange={e => setForm({...form, [k]: e.target.value})} />)}
-      </div>
-      <button onClick={onExec} disabled={loading} className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 rounded text-sm shadow-md transition active:scale-[0.98]">HAPUS TOTAL</button>
-    </div>
-
-    <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-300 p-4 rounded-lg space-y-2">
-        <h2 className="text-sm font-bold text-orange-800 dark:text-orange-200">🛠️ RESET MASTER DATA</h2>
-        <p className="text-xs text-orange-700/80 dark:text-orange-300/80">
-            Hapus semua Santri & Jenis Pelanggaran lama, lalu ganti dengan versi baru (Hardcoded).
-            <br/><span className="font-bold">Tekan ini sekali setelah update aplikasi!</span>
-        </p>
-        <button onClick={onResetMaster} disabled={loading} className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded text-sm shadow-md transition active:scale-[0.98]">
-            UPDATE MASTER KE VERSI BARU
-        </button>
-    </div>
-  </div>
-));
 
 const RegForm = ({ user, types, onSubmit }) => {
     const [form, setForm] = useState({ nickname: user.displayName || "", assignedTypes: [] });
@@ -455,14 +305,13 @@ const RegForm = ({ user, types, onSubmit }) => {
                 </div>
                 <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-sub)]">
                     <button onClick={() => onSubmit(form)} disabled={!form.nickname || form.assignedTypes.length === 0} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition shadow-lg">KIRIM PERMINTAAN</button>
-                    <button onClick={() => signOut(auth)} className="w-full mt-2 text-red-500 font-bold text-sm hover:underline">Batal / Logout</button>
+                    <button onClick={() => supabase.auth.signOut()} className="w-full mt-2 text-red-500 font-bold text-sm hover:underline">Batal / Logout</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- MAIN COMPONENT ---
 export default function App() {
   const [ui, setUi] = useState({ user: null, role: null, dbUser: null, isPending: false, tab: "takziran", menu: false, loading: false, toast: null, dark: localStorage.getItem("theme") !== "light", batchMode: "daily", backupMode: "download" });
   const [data, setData] = useState({ santri: [], jenis: [], logs: [], catatan: [], users: [], pendingUsers: [] });
@@ -478,46 +327,87 @@ export default function App() {
   const [expanded, setExpanded] = useState({});
   const [dailyRes, setDailyRes] = useState({ list: [], selected: [] });
 
+  // --- SUPABASE FETCHING ---
+  const fetchData = useCallback(async () => {
+    setUi(p => ({...p, loading: true}));
+    
+    // Helper to fetch table
+    const get = async (table, orderCol) => {
+        const { data, error } = await supabase.from(table).select('*').order(orderCol || 'id', {ascending: true});
+        return error ? [] : data;
+    };
+    
+    // Logs need descending order by date usually
+    const { data: logsData } = await supabase.from('logs_pelanggaran').select('*').order('tglMelanggar', {ascending: false});
+    const { data: catData } = await supabase.from('santri_catatan').select('*').order('createdAt', {ascending: false});
+
+    setData(p => ({
+        ...p,
+        santri: (await get('master_santri', 'nama')) || [],
+        jenis: (await get('master_jenis', 'nama')) || [],
+        users: (await get('manage_users', 'email')) || [],
+        pendingUsers: (await get('users_pending', 'createdAt')) || [],
+        logs: logsData || [],
+        catatan: catData || []
+    }));
+    setUi(p => ({...p, loading: false}));
+  }, []);
+
+  // --- REALTIME SUBSCRIPTION ---
+  useEffect(() => {
+    fetchData(); // Initial load
+
+    // Listen to changes in all relevant tables
+    const channels = ['master_santri', 'master_jenis', 'logs_pelanggaran', 'santri_catatan', 'manage_users', 'users_pending'].map(table => {
+        return supabase.channel(`public:${table}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: table }, () => {
+                fetchData(); // Simplest strategy: refetch all on change
+            })
+            .subscribe();
+    });
+
+    return () => {
+        channels.forEach(c => supabase.removeChannel(c));
+    };
+  }, [fetchData]);
+
+  // --- AUTH & DARK MODE ---
   useEffect(() => { document.body.classList.toggle('dark-mode', ui.dark); }, [ui.dark]);
   
   useEffect(() => {
-    const q = (c, o) => query(collection(db, c), orderBy(...o));
-    const unsubs = [
-      onSnapshot(q("master_santri", ["nama"]), s => setData(p => ({ ...p, santri: s.docs.map(d => ({ id: d.id, ...d.data() })) }))),
-      onSnapshot(q("master_jenis", ["nama"]), s => setData(p => ({ ...p, jenis: s.docs.map(d => ({ id: d.id, ...d.data() })) }))),
-      onSnapshot(q("logs_pelanggaran", ["tglMelanggar", "desc"]), s => setData(p => ({ ...p, logs: s.docs.map(d => ({ id: d.id, ...d.data() })) }))),
-      onSnapshot(q("santri_catatan", ["createdAt", "desc"]), s => setData(p => ({ ...p, catatan: s.docs.map(d => ({ id: d.id, ...d.data() })) }))),
-      onSnapshot(collection(db, "manage_users"), s => setData(p => ({ ...p, users: s.docs.map(d => ({ id: d.id, ...d.data() })) }))),
-      onSnapshot(collection(db, "users_pending"), s => setData(p => ({ ...p, pendingUsers: s.docs.map(d => ({ id: d.id, ...d.data() })) })))
-    ];
-    return () => unsubs.forEach(u => u());
-  }, []);
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+       const u = session?.user;
+       if (!u) {
+           setUi(p => ({ ...p, user: null, role: null, dbUser: null, isPending: false }));
+           return;
+       }
 
-  useEffect(() => {
-    return onAuthStateChanged(auth, u => {
-      let role = null;
-      let dbUser = null;
-      let isPending = false;
-
-      if (u) {
-        if (SUPER_ADMINS.includes(u.email)) {
-            role = "admin";
-            dbUser = { email: u.email, role: 'admin', nickname: 'Super Admin' };
-        } else {
-            const found = data.users.find(user => user.email === u.email);
-            if (found) {
-                role = found.role;
-                dbUser = found;
-            } else {
-                // Check if pending
-                const pending = data.pendingUsers.find(pu => pu.email === u.email);
-                if (pending) isPending = true;
-            }
-        }
-      }
-      setUi(p => ({ ...p, user: u, role, dbUser, isPending }));
+       let role = null;
+       let dbUser = null;
+       let isPending = false;
+       
+       if (SUPER_ADMINS.includes(u.email)) {
+           role = "admin";
+           dbUser = { email: u.email, role: 'admin', nickname: 'Super Admin' };
+       } else {
+           // We need to check users from state, but state might not be loaded yet if first render
+           // Ideally we query the DB specifically for this user here
+           supabase.from('manage_users').select('*').eq('email', u.email).single().then(({ data: found }) => {
+                if (found) {
+                    setUi(p => ({ ...p, user: u, role: found.role, dbUser: found }));
+                } else {
+                    supabase.from('users_pending').select('*').eq('email', u.email).single().then(({ data: pending }) => {
+                        setUi(p => ({ ...p, user: u, role: null, dbUser: null, isPending: !!pending }));
+                    });
+                }
+           });
+           return; // Async handled above
+       }
+       setUi(p => ({ ...p, user: u, role, dbUser, isPending }));
     });
-  }, [data.users, data.pendingUsers]);
+
+    return () => authListener.subscription.unsubscribe();
+  }, [data.users]); // Dependency on users to re-check role if users list updates
 
   const showToast = useCallback((msg) => { setUi(p => ({...p, toast: msg})); setTimeout(() => setUi(p => ({...p, toast: null})), 3000); }, []);
   
@@ -528,109 +418,207 @@ export default function App() {
     setUi(p => ({...p, loading: false}));
   }, []);
 
+  // --- CRUD OPERATIONS (SUPABASE) ---
   const crud = useMemo(() => ({
     save: (e) => { 
       e.preventDefault(); 
       if (!forms.input.jenis || !forms.input.students.length) return alert("Pilih data!");
       exec(async () => {
-        const batch = writeBatch(db); 
-        forms.input.students.forEach(nama => batch.set(doc(collection(db, "logs_pelanggaran")), { nama, jenis: forms.input.jenis, tglMelanggar: forms.input.date, statusTazir: forms.input.isTazir, keterangan: forms.input.keterangan, createdAt: serverTimestamp() })); 
-        await batch.commit(); 
+        const payload = forms.input.students.map(nama => ({
+            nama, 
+            jenis: forms.input.jenis, 
+            tglMelanggar: forms.input.date, 
+            statusTazir: forms.input.isTazir, 
+            keterangan: forms.input.keterangan, 
+            createdAt: new Date().toISOString()
+        }));
+        
+        const { error } = await supabase.from('logs_pelanggaran').insert(payload);
+        if (error) throw error;
+
         setForms(p => ({ ...p, input: { ...p.input, students: [], keterangan: "" } })); 
         showToast("✅ Berhasil Simpan");
       });
     },
-    delMany: (ids) => exec(async () => { const batch = writeBatch(db); ids.forEach(id => batch.delete(doc(db, "logs_pelanggaran", id))); await batch.commit(); showToast("Terhapus"); }, `Hapus ${ids.length} data?`),
-    tazir: (nama, e) => { e.stopPropagation(); exec(async () => { const batch = writeBatch(db); (await getDocs(query(collection(db, "logs_pelanggaran"), where("nama", "==", nama), where("statusTazir", "==", "Belum")))).forEach(d => batch.update(d.ref, { statusTazir: "Sudah" })); await batch.commit(); showToast("Di-ta'zir"); }); },
-    addNote: (nama) => { if(forms.note.trim()) exec(async () => { await addDoc(collection(db, "santri_catatan"), { nama, isi: forms.note, createdAt: serverTimestamp() }); setForms(p => ({...p, note: ""})); showToast("Catatan +"); }); },
+    delMany: (ids) => exec(async () => { 
+        const { error } = await supabase.from('logs_pelanggaran').delete().in('id', ids);
+        if (error) throw error;
+        showToast("Terhapus"); 
+    }, `Hapus ${ids.length} data?`),
+
+    tazir: (nama, e) => { 
+        e.stopPropagation(); 
+        exec(async () => { 
+            // Update where nama = nama AND status = Belum
+            const { error } = await supabase.from('logs_pelanggaran')
+                .update({ statusTazir: "Sudah" })
+                .eq('nama', nama)
+                .eq('statusTazir', 'Belum');
+            if (error) throw error;
+            showToast("Di-ta'zir"); 
+        }); 
+    },
+
+    addNote: (nama) => { 
+        if(forms.note.trim()) exec(async () => { 
+            const { error } = await supabase.from('santri_catatan').insert([{ nama, isi: forms.note, createdAt: new Date().toISOString() }]);
+            if (error) throw error;
+            setForms(p => ({...p, note: ""})); showToast("Catatan +"); 
+        }); 
+    },
+
     updateBatch: (action) => {
       if(!dailyRes.selected.length) return alert("Pilih data!");
-      exec(async () => { const batch = writeBatch(db); dailyRes.selected.forEach(id => { const ref = doc(db, "logs_pelanggaran", id); action === 'delete' ? batch.delete(ref) : batch.update(ref, { jenis: forms.batchTarget.newJenis, tglMelanggar: forms.batchTarget.newDate }); }); await batch.commit(); showToast("Sukses"); setDailyRes({ list: [], selected: [] }); }, `${action} ${dailyRes.selected.length} data?`);
+      exec(async () => { 
+        if (action === 'delete') {
+            await supabase.from('logs_pelanggaran').delete().in('id', dailyRes.selected);
+        } else {
+            await supabase.from('logs_pelanggaran').update({ jenis: forms.batchTarget.newJenis, tglMelanggar: forms.batchTarget.newDate }).in('id', dailyRes.selected);
+        }
+        showToast("Sukses"); setDailyRes({ list: [], selected: [] }); 
+      }, `${action} ${dailyRes.selected.length} data?`);
     },
-    searchDaily: async () => { if(!forms.daily.jenis) return alert("Pilih jenis!"); const res = (await getDocs(query(collection(db, "logs_pelanggaran"), where("tglMelanggar", "==", forms.daily.date), where("jenis", "==", forms.daily.jenis)))).docs.map(d => ({id: d.id, ...d.data()})); setDailyRes({ list: res, selected: res.map(r => r.id) }); setForms(p => ({...p, batchTarget: { newJenis: forms.daily.jenis, newDate: forms.daily.date }})); if(!res.length) showToast("Nihil"); },
-    backup: () => { const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([JSON.stringify({ collections: { master_santri: data.santri, master_jenis: data.jenis, logs_pelanggaran: data.logs, santri_catatan: data.catatan }}, null, 2)], {type: "application/json"})); link.download = `backup_${getDate()}.json`; link.click(); },
-    processRestore: () => { const file = forms.restoreFile; if (!file) return; exec(async () => { const json = JSON.parse(await file.text()); for (const [col, docs] of Object.entries(json.collections)) { for (let i=0; i<docs.length; i+=450) { const batch = writeBatch(db); docs.slice(i, i+450).forEach(({id, ...r}) => id && batch.set(doc(db, col, id), r)); await batch.commit(); } } showToast(`Restored`); setForms(p => ({...p, restoreFile: null})); }, "Tutup data lama?"); },
-    importCsv: () => exec(async () => { const batch = writeBatch(db); forms.csv.trim().split("\n").slice(1).forEach(r => { const c = r.split(","); if(c.length>=3) { const [m,d,y] = c[2].trim().split("/"); batch.set(doc(collection(db, "logs_pelanggaran")), { nama: c[0].trim(), jenis: c[1].trim(), tglMelanggar: `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`, statusTazir: "Belum", createdAt: serverTimestamp() }); }}); await batch.commit(); showToast("Imported"); }),
-    bulkDeleteRange: () => exec(async () => { const { start, end } = forms.bulkDel; const snap = await getDocs(query(collection(db, "logs_pelanggaran"), where("tglMelanggar", ">=", start), where("tglMelanggar", "<=", end))); if (snap.empty) return; const batch = writeBatch(db); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); showToast(`${snap.size} Terhapus`); }, `Hapus ${forms.bulkDel.start} - ${forms.bulkDel.end}?`),
-    migrateRange: () => { const { start, end, oldJenis, newJenis } = forms.range; if(!oldJenis || !newJenis) return; exec(async () => { const snap = await getDocs(query(collection(db, "logs_pelanggaran"), where("tglMelanggar", ">=", start), where("tglMelanggar", "<=", end), where("jenis", "==", oldJenis))); if(snap.empty) return; const batch = writeBatch(db); snap.docs.forEach(d => batch.update(d.ref, { jenis: newJenis })); await batch.commit(); showToast(`${snap.size} Sukses`); }, "Ganti semua?"); },
-    addSantri: () => { if (forms.santri.trim()) exec(async () => { await addDoc(collection(db, "master_santri"), { nama: forms.santri }); setForms(p => ({ ...p, santri: "" })); showToast("Santri +"); }); },
-    updateSantri: () => { if (forms.editSantri?.nama.trim()) exec(async () => { await updateDoc(doc(db, "master_santri", forms.editSantri.id), { nama: forms.editSantri.nama }); setForms(p => ({ ...p, editSantri: null })); showToast("Updated"); }); },
-    deleteSantri: (id) => exec(async () => { await deleteDoc(doc(db, "master_santri", id)); showToast("Deleted"); }, "Hapus?"),
-    delUser: (id) => exec(async () => { await deleteDoc(doc(db, "manage_users", id)); showToast("Member -"); }, "Hapus?"),
+
+    searchDaily: async () => { 
+        if(!forms.daily.jenis) return alert("Pilih jenis!"); 
+        const { data: res } = await supabase.from('logs_pelanggaran').select('*').eq("tglMelanggar", forms.daily.date).eq("jenis", forms.daily.jenis);
+        setDailyRes({ list: res || [], selected: (res || []).map(r => r.id) }); 
+        setForms(p => ({...p, batchTarget: { newJenis: forms.daily.jenis, newDate: forms.daily.date }})); 
+        if(!res?.length) showToast("Nihil"); 
+    },
+
+    backup: () => { 
+        const link = document.createElement("a"); 
+        link.href = URL.createObjectURL(new Blob([JSON.stringify({ collections: { master_santri: data.santri, master_jenis: data.jenis, logs_pelanggaran: data.logs, santri_catatan: data.catatan }}, null, 2)], {type: "application/json"})); 
+        link.download = `backup_${getDate()}.json`; link.click(); 
+    },
+
+    // --- RESTORE DARI FIREBASE JSON ---
+    processRestore: () => { 
+        const file = forms.restoreFile; 
+        if (!file) return; 
+        
+        exec(async () => { 
+            const text = await file.text();
+            const json = JSON.parse(text); 
+            
+            // Helper to convert Firebase timestamp to ISO
+            const toISO = (ts) => {
+                if (!ts) return new Date().toISOString();
+                if (ts.seconds) return new Date(ts.seconds * 1000).toISOString();
+                if (typeof ts === 'string') return ts; // Already string
+                return new Date().toISOString();
+            }
+
+            // Upload Batches (Supabase handles bulk insert well)
+            // 1. Santri
+            if (json.collections.master_santri) {
+                const santriPayload = json.collections.master_santri.map(x => ({ id: x.id, nama: x.nama }));
+                await supabase.from('master_santri').upsert(santriPayload);
+            }
+            // 2. Jenis
+            if (json.collections.master_jenis) {
+                const jenisPayload = json.collections.master_jenis.map(x => ({ id: x.id, nama: x.nama }));
+                await supabase.from('master_jenis').upsert(jenisPayload);
+            }
+            // 3. Logs (Hati-hati timestamp)
+            if (json.collections.logs_pelanggaran) {
+                const logsPayload = json.collections.logs_pelanggaran.map(x => ({
+                    id: x.id,
+                    nama: x.nama,
+                    jenis: x.jenis,
+                    tglMelanggar: x.tglMelanggar,
+                    statusTazir: x.statusTazir,
+                    keterangan: x.keterangan,
+                    createdAt: toISO(x.createdAt)
+                }));
+                // Insert in chunks of 500 to be safe
+                for (let i = 0; i < logsPayload.length; i += 500) {
+                     await supabase.from('logs_pelanggaran').upsert(logsPayload.slice(i, i + 500));
+                }
+            }
+            // 4. Catatan
+            if (json.collections.santri_catatan) {
+                const catPayload = json.collections.santri_catatan.map(x => ({
+                    id: x.id,
+                    nama: x.nama,
+                    isi: x.isi,
+                    createdAt: toISO(x.createdAt)
+                }));
+                 await supabase.from('santri_catatan').upsert(catPayload);
+            }
+
+            showToast(`Restore Berhasil!`); 
+            setForms(p => ({...p, restoreFile: null})); 
+            fetchData();
+        }, "Tutup data lama? Data ID yang sama akan ditimpa."); 
+    },
+
+    bulkDeleteRange: () => exec(async () => { 
+        const { start, end } = forms.bulkDel; 
+        const { error } = await supabase.from('logs_pelanggaran').delete().gte('tglMelanggar', start).lte('tglMelanggar', end);
+        if (error) throw error;
+        showToast("Terhapus"); 
+    }, `Hapus ${forms.bulkDel.start} - ${forms.bulkDel.end}?`),
+
+    migrateRange: () => { 
+        const { start, end, oldJenis, newJenis } = forms.range; 
+        if(!oldJenis || !newJenis) return; 
+        exec(async () => { 
+            const { error } = await supabase.from('logs_pelanggaran')
+                .update({ jenis: newJenis })
+                .gte('tglMelanggar', start)
+                .lte('tglMelanggar', end)
+                .eq('jenis', oldJenis);
+            if (error) throw error;
+            showToast(`Sukses Migrasi`); 
+        }, "Ganti semua?"); 
+    },
+
+    addSantri: () => { if (forms.santri.trim()) exec(async () => { await supabase.from('master_santri').insert([{ nama: forms.santri }]); setForms(p => ({ ...p, santri: "" })); showToast("Santri +"); }); },
+    updateSantri: () => { if (forms.editSantri?.nama.trim()) exec(async () => { await supabase.from('master_santri').update({ nama: forms.editSantri.nama }).eq('id', forms.editSantri.id); setForms(p => ({ ...p, editSantri: null })); showToast("Updated"); }); },
+    deleteSantri: (id) => exec(async () => { await supabase.from('master_santri').delete().eq('id', id); showToast("Deleted"); }, "Hapus?"),
+    delUser: (id) => exec(async () => { await supabase.from('manage_users').delete().eq('id', id); showToast("Member -"); }, "Hapus?"),
     
-    // NEW METHODS
     submitReg: (formData) => exec(async () => {
-        await addDoc(collection(db, "users_pending"), {
+        await supabase.from('users_pending').insert([{
             email: ui.user.email,
-            uid: ui.user.uid,
+            uid: ui.user.id,
             nickname: formData.nickname,
             assignedTypes: formData.assignedTypes,
-            createdAt: serverTimestamp()
-        });
+            createdAt: new Date().toISOString()
+        }]);
         showToast("Menunggu Persetujuan Admin");
     }),
     approveUser: (userData) => exec(async () => {
-        // Add to manage_users
-        await addDoc(collection(db, "manage_users"), {
+        await supabase.from('manage_users').insert([{
             email: userData.email,
             role: "pengurus",
             nickname: userData.nickname,
             assignedTypes: userData.assignedTypes || []
-        });
-        // Remove from pending
-        await deleteDoc(doc(db, "users_pending", userData.id));
+        }]);
+        await supabase.from('users_pending').delete().eq('id', userData.id);
         showToast("User Disetujui");
     }),
     rejectUser: (id) => exec(async () => {
-        await deleteDoc(doc(db, "users_pending", id));
+        await supabase.from('users_pending').delete().eq('id', id);
         showToast("User Ditolak");
     }, "Tolak permintaan ini?"),
     updateUserAssignment: (userId, newTypes) => exec(async () => {
-        await updateDoc(doc(db, "manage_users", userId), { assignedTypes: newTypes });
+        await supabase.from('manage_users').update({ assignedTypes: newTypes }).eq('id', userId);
         showToast("Tugas Diupdate");
     }),
+    
     resetMasterData: () => exec(async () => {
-        // Batch limit 500, we do chunks
-        const batchDelete = async (colName) => {
-            const snap = await getDocs(collection(db, colName));
-            const chunks = [];
-            let currentChunk = writeBatch(db);
-            let count = 0;
-            snap.docs.forEach(d => {
-                currentChunk.delete(d.ref);
-                count++;
-                if (count % 400 === 0) {
-                    chunks.push(currentChunk);
-                    currentChunk = writeBatch(db);
-                }
-            });
-            chunks.push(currentChunk);
-            for (const chunk of chunks) await chunk.commit();
-        };
-
-        const batchAdd = async (colName, list) => {
-            const chunks = [];
-            let currentChunk = writeBatch(db);
-            let count = 0;
-            list.forEach(name => {
-                const ref = doc(collection(db, colName));
-                currentChunk.set(ref, { nama: name });
-                count++;
-                if (count % 400 === 0) {
-                    chunks.push(currentChunk);
-                    currentChunk = writeBatch(db);
-                }
-            });
-            chunks.push(currentChunk);
-            for (const chunk of chunks) await chunk.commit();
-        };
-
-        await batchDelete("master_santri");
-        await batchDelete("master_jenis");
-        await batchAdd("master_santri", MASTER_SANTRI_FIX);
-        await batchAdd("master_jenis", MASTER_JENIS_FIX);
+        // Delete All first
+        await supabase.from('master_santri').delete().neq('id', '000000'); // Delete all (hackish way neq something impossible)
+        await supabase.from('master_jenis').delete().neq('id', '000000');
+        
+        // Insert new
+        await supabase.from('master_santri').insert(MASTER_SANTRI_FIX.map(nama => ({ nama })));
+        await supabase.from('master_jenis').insert(MASTER_JENIS_FIX.map(nama => ({ nama })));
         showToast("Master Data Reset!");
-    }, "PERINGATAN: Ini akan menghapus semua santri dan jenis lama, lalu menggantinya dengan daftar baru. Lanjutkan?")
+    }, "PERINGATAN: Menghapus semua santri & jenis, ganti dengan hardcoded. Lanjut?")
   }), [forms, dailyRes, data, exec, showToast, ui.user]);
 
   const groupedLogs = useMemo(() => data.logs.reduce((acc, cur) => { (acc[cur.nama] = acc[cur.nama] || []).push(cur); return acc; }, {}), [data.logs]);
@@ -646,7 +634,7 @@ export default function App() {
     if (isPetugas && ui.dbUser?.assignedTypes?.length > 0) {
         return data.jenis.filter(j => ui.dbUser.assignedTypes.includes(j.nama));
     }
-    return data.jenis; // Fallback if no specific assignment, show all or none? Let's show all for now unless restricted.
+    return data.jenis; 
   }, [data.jenis, isAdmin, isPetugas, ui.dbUser]);
 
   // LOGIN FLOW HANDLING
@@ -657,7 +645,7 @@ export default function App() {
                   <div className="text-4xl">⏳</div>
                   <h1 className="text-xl font-bold">Menunggu Persetujuan Admin</h1>
                   <p className="text-sm opacity-70">Permintaan akses Anda sedang ditinjau.<br/>Notifikasi akan muncul di dashboard admin.</p>
-                  <button onClick={() => signOut(auth)} className="text-red-500 font-bold underline text-sm">Logout</button>
+                  <button onClick={() => supabase.auth.signOut()} className="text-red-500 font-bold underline text-sm">Logout</button>
               </div>
           );
       }
@@ -667,7 +655,7 @@ export default function App() {
   return (
     <div className="h-[100dvh] bg-[var(--bg-main)] text-[var(--text-main)] font-sans flex flex-col overflow-hidden" onClick={() => setUi(p => ({...p, menu: false}))}>
       <div className="flex-none bg-[var(--bg-header)] px-4 py-3 border-b border-[var(--border)] z-50 shadow-md flex justify-between items-center h-[64px]">
-        <h1 className="text-xl font-bold text-[var(--text-accent)] tracking-tight">Takziran App</h1>
+        <h1 className="text-xl font-bold text-[var(--text-accent)] tracking-tight">Takziran App (Supa)</h1>
         <div className="flex gap-3 relative">
           <button onClick={(e) => { e.stopPropagation(); setUi(p => ({...p, dark: !p.dark})); localStorage.setItem("theme", !ui.dark ? "dark" : "light"); }} className="p-2 rounded-full hover:bg-[var(--bg-hover)] transition"><Icon name={ui.dark ? "Moon" : "Sun"} className="w-6 h-6 text-yellow-500" /></button>
           <button onClick={(e) => { e.stopPropagation(); setUi(p => ({...p, menu: !p.menu})); }} className="p-2 rounded-full hover:bg-[var(--bg-hover)] transition relative">
@@ -683,7 +671,7 @@ export default function App() {
                       </button>
                   ))}
                   <div className="border-t border-[var(--border)] my-1"></div>
-                  <button onClick={() => { ui.user ? signOut(auth) : signInWithPopup(auth, googleProvider); setUi(p => ({...p, menu: false})); }} className={`w-full text-left px-5 py-3 text-sm font-bold flex items-center gap-2 ${ui.user ? "text-red-500" : "text-green-600"}`}>
+                  <button onClick={() => { ui.user ? supabase.auth.signOut() : supabase.auth.signInWithOAuth({provider: 'google'}); setUi(p => ({...p, menu: false})); }} className={`w-full text-left px-5 py-3 text-sm font-bold flex items-center gap-2 ${ui.user ? "text-red-500" : "text-green-600"}`}>
                       <Icon name="Logout" className="w-4 h-4" /> {ui.user ? "Logout" : "Login Google"}
                   </button>
                   {ui.user && <div className="px-5 py-1 text-[10px] text-[var(--text-muted)] border-t border-[var(--border)] mt-1 pt-2">{ui.user.email}<br/><span className="uppercase font-bold text-[var(--text-accent)]">{ui.role === 'admin' ? 'Admin' : 'Petugas'}</span></div>}
@@ -702,19 +690,9 @@ export default function App() {
                 <div className="flex flex-col gap-2 shrink-0">
                     <select className="input-field py-2.5 px-3 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg text-sm w-full outline-none focus:border-blue-500 transition" value={forms.input.jenis} onChange={e => setForms(p => ({...p, input: {...p.input, jenis: e.target.value}}))}>
                       <option value="">-- Pilih Jenis Pelanggaran --</option>
-                      {inputTypes.map(j => {
-                          // CHANGE: Find assigned members for this type
-                          const petugas = data.users
-                            .filter(u => u.assignedTypes && u.assignedTypes.includes(j.nama))
-                            .map(u => u.nickname)
-                            .join(", ");
-                          
-                          return (
-                            <option key={j.id} value={j.nama}>
-                                {j.nama} {petugas ? ` | ${petugas}` : ""}
-                            </option>
-                          );
-                      })}
+                      {inputTypes.map(j => (
+                            <option key={j.id} value={j.nama}>{j.nama}</option>
+                      ))}
                     </select>
                     <div className="flex gap-2 h-10 w-full">
                         <input type="date" className="input-field px-2 h-full bg-[var(--bg-input)] border border-[var(--border)] rounded-lg text-xs flex-[4]" value={forms.input.date} onChange={e => setForms(p => ({...p, input: {...p.input, date: e.target.value}}))} />
@@ -749,10 +727,10 @@ export default function App() {
                   role={ui.role} 
                   actions={{ 
                       tazir: crud.tazir, 
-                      del: id => deleteDoc(doc(db, "logs_pelanggaran", id)), 
+                      del: id => exec(() => supabase.from('logs_pelanggaran').delete().eq('id', id), "Hapus?"), 
                       delMany: crud.delMany, 
                       addNote: crud.addNote, 
-                      delNote: id => deleteDoc(doc(db, "santri_catatan", id)) 
+                      delNote: id => exec(() => supabase.from('santri_catatan').delete().eq('id', id), "Hapus catatan?") 
                   }} 
                   noteForm={forms.note} 
                   setNoteForm={v => setForms(p => ({...p, note: v}))} 
@@ -773,22 +751,28 @@ export default function App() {
                       {ui.batchMode === "range" && <div className="space-y-4 animate-fade-in"><div className="grid grid-cols-2 gap-3">{['start','end'].map(k => <div key={k}><label className="text-[10px] uppercase font-bold text-[var(--text-muted)] mb-1 block">{k === 'start' ? 'Dari' : 'Sampai'}</label><input type="date" className="input-field w-full py-2.5 px-3 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded-lg" value={forms.range[k]} onChange={e => setForms(p => ({...p, range: {...p.range, [k]: e.target.value}}))} /></div>)}</div><div className="space-y-3">{[{k:'oldJenis',l:'Jenis Lama'},{k:'newJenis',l:'Jenis Baru'}].map(f => <div key={f.k}><label className="text-[10px] uppercase font-bold text-[var(--text-muted)] mb-1 block">{f.l}</label><select className="input-field w-full py-2.5 px-3 text-sm bg-[var(--bg-input)] border border-[var(--border)] rounded-lg" value={forms.range[f.k]} onChange={e => setForms(p => ({...p, range: {...p.range, [f.k]: e.target.value}}))}><option value="">-- Pilih --</option>{data.jenis.map(j => <option key={j.id} value={j.nama}>{j.nama}</option>)}</select></div>)}</div><button onClick={crud.migrateRange} className="w-full bg-amber-600 text-white py-3 rounded-lg font-bold mt-2 text-sm">EKSEKUSI</button></div>}
                     </div>
                   </div>
+                  
+                  {/* RESTORE AREA */}
                   <div className="bg-[var(--bg-card)] border border-cyan-700/30 rounded-xl overflow-hidden shadow-sm">
                      <div className="flex text-xs font-bold border-b border-cyan-700/20 bg-cyan-50/50">
                        <button onClick={() => setUi(p => ({...p, backupMode: "download"}))} className={`flex-1 py-3 ${ui.backupMode==="download"?"text-cyan-700 bg-cyan-100/50":"text-[var(--text-muted)]"}`}>Backup</button>
-                       <button onClick={() => setUi(p => ({...p, backupMode: "restore"}))} className={`flex-1 py-3 ${ui.backupMode==="restore"?"text-cyan-700 bg-cyan-100/50":"text-[var(--text-muted)]"}`}>Restore</button>
+                       <button onClick={() => setUi(p => ({...p, backupMode: "restore"}))} className={`flex-1 py-3 ${ui.backupMode==="restore"?"text-cyan-700 bg-cyan-100/50":"text-[var(--text-muted)]"}`}>Restore (JSON)</button>
                      </div>
                      <div className="p-4 bg-[var(--bg-card)] text-center">
                        {ui.backupMode === "download" ? (
                          <button onClick={crud.backup} className="w-full bg-cyan-700 text-white font-bold py-3 rounded-lg text-sm">DOWNLOAD JSON</button> 
                        ) : (
                          <div className="space-y-3">
+                           <div className="p-3 bg-yellow-50 text-yellow-800 text-xs rounded border border-yellow-200">
+                               <strong>PENTING:</strong> Gunakan file <code>backup_...json</code> dari Firebase lama Anda. Sistem akan otomatis mengkonversi format waktunya.
+                           </div>
                            <input type="file" accept=".json" onChange={e => setForms(p => ({...p, restoreFile: e.target.files[0]}))} className="block w-full text-xs" />
-                           <button onClick={crud.processRestore} disabled={!forms.restoreFile} className="w-full bg-teal-600 text-white font-bold py-3 rounded-lg text-sm">RESTORE DATA</button>
+                           <button onClick={crud.processRestore} disabled={!forms.restoreFile} className="w-full bg-teal-600 text-white font-bold py-3 rounded-lg text-sm">RESTORE DATA LAMA</button>
                          </div>
                        )}
                      </div>
                   </div>
+
                   <BatchDanger form={forms.bulkDel} setForm={v => setForms(p => ({...p, bulkDel: v}))} onExec={crud.bulkDeleteRange} loading={ui.loading} onResetMaster={crud.resetMasterData} />
                 </div>
               )}
