@@ -702,7 +702,19 @@ export default function App() {
                 <div className="flex flex-col gap-2 shrink-0">
                     <select className="input-field py-2.5 px-3 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg text-sm w-full outline-none focus:border-blue-500 transition" value={forms.input.jenis} onChange={e => setForms(p => ({...p, input: {...p.input, jenis: e.target.value}}))}>
                       <option value="">-- Pilih Jenis Pelanggaran --</option>
-                      {inputTypes.map(j => <option key={j.id} value={j.nama}>{j.nama}</option>)}
+                      {inputTypes.map(j => {
+                          // CHANGE: Find assigned members for this type
+                          const petugas = data.users
+                            .filter(u => u.assignedTypes && u.assignedTypes.includes(j.nama))
+                            .map(u => u.nickname)
+                            .join(", ");
+                          
+                          return (
+                            <option key={j.id} value={j.nama}>
+                                {j.nama} {petugas ? ` | ${petugas}` : ""}
+                            </option>
+                          );
+                      })}
                     </select>
                     <div className="flex gap-2 h-10 w-full">
                         <input type="date" className="input-field px-2 h-full bg-[var(--bg-input)] border border-[var(--border)] rounded-lg text-xs flex-[4]" value={forms.input.date} onChange={e => setForms(p => ({...p, input: {...p.input, date: e.target.value}}))} />
