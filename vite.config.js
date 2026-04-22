@@ -1,24 +1,20 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react' // Pastikan baris ini menggunakan @vitejs/plugin-react
 
+// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 1000,
+    // Meningkatkan batas peringatan ukuran file agar tidak muncul warna kuning (dalam KB)
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
+        // Memecah library besar menjadi file terpisah agar aplikasi lebih ringan saat dimuat
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Kita pecah exceljs karena dia yang paling berat
-            if (id.includes('exceljs')) {
-              return 'vendor-excel';
-            }
-            // Kita pecah library utama React agar stabil
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-framework';
-            }
-            // Sisanya (lucide, supabase, dll) masuk ke vendor umum
-            return 'vendor';
+            if (id.includes('exceljs')) return 'vendor-excel';
+            if (id.includes('jspdf')) return 'vendor-pdf';
+            return 'vendor-others';
           }
         }
       }
