@@ -126,7 +126,7 @@ export default function App() {
                 let { data: ex } = await supabase.from('manage_users').select('*').eq('email', u.email).maybeSingle();
                 if (!ex) { const { data: n, error } = await supabase.from('manage_users').insert([{ email: u.email, role: 'admin', nickname: 'Super Admin', last_seen: new Date().toISOString(), last_action: 'Login' }]).select().single(); if (!error) ex = n; }
                 else await supabase.from('manage_users').update({ last_seen: new Date().toISOString(), last_action: 'Login' }).eq('id', ex.id);
-                setUi(p => ({ ...p, user: u, role: 'admin', dbUser: ex, isPending: false, isInitializing: false, tab: 'takziran' }));
+                setUi(p => ({ ...p, user: u, role: 'admin', dbUser: ex, isPending: false, isInitializing: false, tab: p.user ? p.tab : 'takziran' }));
                 return;
             }
             try {
@@ -135,7 +135,7 @@ export default function App() {
                     await supabase.from('manage_users').update({ last_seen: new Date().toISOString(), last_action: 'Login' }).eq('id', found.id);
                     const defaultTab = found.role === ROLES.WALI_KELAS ? 'riwayat' : 'takziran';
                     const defaultBatch = found.role === ROLES.WALI_KELAS ? 'wali' : 'users';
-                    setUi(p => ({ ...p, user: u, role: found.role, dbUser: found, isPending: false, isInitializing: false, tab: defaultTab, batchMode: defaultBatch }));
+                    setUi(p => ({ ...p, user: u, role: found.role, dbUser: found, isPending: false, isInitializing: false, tab: p.user ? p.tab : defaultTab, batchMode: p.user ? p.batchMode : defaultBatch }));
                 } else {
                     const { data: pend } = await supabase.from('users_pending').select('*').eq('email', u.email).maybeSingle();
                     setUi(p => ({ ...p, user: u, isPending: !!pend, dbUser: null, isInitializing: false }));

@@ -31,7 +31,7 @@ const WaliHistoryGrid = memo(({ logs, types, currDate, changeMonth }) => {
             <div className="overflow-x-auto custom-scrollbar pb-2 bg-white">
                 <div className="inline-block min-w-full align-middle bg-white">
                     <div className="flex border-b border-slate-200 bg-white">
-                        <div className="sticky left-0 z-20 w-40 min-w-[10rem] bg-white border-r border-slate-200 shrink-0 p-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Jenis Kegiatan</div>
+                        <div className="sticky left-0 z-20 w-40 min-w-[10rem] bg-white border-r border-slate-200 shrink-0 p-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">KEGIATAN</div>
                         {daysArray.map(d => {
                             const dayName = ["Ahd", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"][new Date(year, month, d).getDay()];
                             const isFriday = dayName === "Jum"; 
@@ -137,7 +137,7 @@ export default function WaliDashboard({ santriId }) {
                     
                     <div className={`px-5 py-3 rounded-2xl text-[11px] font-bold flex items-center gap-2 border ${cToday === 0 ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30' : 'bg-rose-500/20 text-rose-100 border-rose-400/30'}`}>
                         {cToday === 0 ? (
-                            <>✓ Hadir Semua Kegiatan Hari Ini</>
+                            <>✓ Hari Ini: Belum Ada Catatan Tidak Hadir</>
                         ) : (
                             <>✗ Tidak Hadir {cToday} Kegiatan Hari Ini</>
                         )}
@@ -151,7 +151,7 @@ export default function WaliDashboard({ santriId }) {
                             <span className={`text-[42px] leading-none font-black ${weekStyle.text}`}>{cWeek}</span>
                             <span className={`w-3.5 h-3.5 rounded-full ${weekStyle.icon} opacity-80`}></span>
                         </div>
-                        <span className={`text-[10px] font-bold ${weekStyle.label} uppercase tracking-widest mt-2`}>Tidak hadir</span>
+                        <span className={`text-[10px] font-bold ${weekStyle.label} uppercase tracking-widest mt-2`}>Ketidakhadiran</span>
                     </div>
                     <div className={`rounded-3xl p-6 border ${monthStyle.border} ${monthStyle.bg} flex flex-col items-center text-center shadow-lg`}>
                         <span className={`text-[10px] font-extrabold ${monthStyle.label} uppercase mb-3 tracking-widest`}>Bulan Ini</span>
@@ -159,7 +159,7 @@ export default function WaliDashboard({ santriId }) {
                             <span className={`text-[42px] leading-none font-black ${monthStyle.text}`}>{cMonth}</span>
                             <span className={`w-3.5 h-3.5 rounded-full ${monthStyle.icon} opacity-80`}></span>
                         </div>
-                        <span className={`text-[10px] font-bold ${monthStyle.label} uppercase tracking-widest mt-2`}>Tidak hadir</span>
+                        <span className={`text-[10px] font-bold ${monthStyle.label} uppercase tracking-widest mt-2`}>Ketidakhadiran</span>
                     </div>
                 </div>
 
@@ -192,7 +192,7 @@ export default function WaliDashboard({ santriId }) {
 
                 <div className="pt-2">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 px-2 gap-3">
-                         <h3 className="font-bold text-sm text-slate-800">Kalender Absensi</h3>
+                         <h3 className="font-bold text-sm text-slate-800">Riwayat Kehadiran</h3>
                          <div className="flex gap-2">
                              <button onClick={() => generateExcel(data.profile.nama, data.logs, data.types, selectedDate)} className="text-[10px] bg-white text-indigo-600 border border-slate-200 px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 hover:bg-indigo-50 hover:border-indigo-200 transition shadow-sm">
                                  <Icon name="Download" className="w-3.5 h-3.5" /> Simpan (XLS)
